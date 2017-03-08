@@ -36,8 +36,10 @@ import {
 } from "../environment.js";
 import {
   Construct,
+  GetIterator,
   GetV,
   GetThisValue,
+  IteratorClose,
   ToObjectPartial,
   PutValue,
   RequireObjectCoercible,
@@ -461,17 +463,80 @@ export function ResolveThisBinding(realm: Realm): NullValue | ObjectValue | Abst
 export function BindingInitialization(realm: Realm, node: BabelNode, value: Value, environment: void | LexicalEnvironment) {
   if (node.type === "ArrayPattern") { // ECMA262 13.3.3.5
     // 1. Let iterator be ? GetIterator(value).
+    let iterator = GetIterator(realm, value);
+
     // 2. Let iteratorRecord be Record {[[Iterator]]: iterator, [[Done]]: false}.
+    let iteratorRecord = {$Iterator: iterator, $Done: false};
+
     // 3. Let result be IteratorBindingInitialization for ArrayBindingPattern using iteratorRecord and environment as arguments.
+    let result = IteratorBindingInitialization(realm, node, iteratorRecord, environment);
+
     // 4. If iteratorRecord.[[Done]] is false, return ? IteratorClose(iterator, result).
+    if (!iteratorRecord.$Done) {
+      return IteratorClose(realm, iterator, result);
+    }
     // 5. Return result.
-    throw new Error("TODO: Patterns aren't supported yet");
+    return result;
   } else if (node.type === "ObjectPattern") { // ECMA262 13.3.3.5
     // 1. Perform ? RequireObjectCoercible(value).
     RequireObjectCoercible(realm, value);
 
     // 2. Return the result of performing BindingInitialization for ObjectBindingPattern using value and environment as arguments.
-    throw new Error("TODO: Patterns aren't supported yet");
+
+    /*'RestProperty' -> argument -> Lval
+    'ObjectProperty' -> computed: bool | decorators : Array<Decorator> | value : Expression | key : Expression
+    'ClassProperty' -> same plus typeannotation
+
+    Lval
+    BabelNodeIdentifier | BabelNodeMemberExpression | BabelNodeRestElement | BabelNodeAssignmentPattern | BabelNodeArrayPattern | BabelNodeObjectPattern;
+
+    'Decorator' -> expression: Expression
+
+    'Identifier' -> name
+
+    'MemberExpression' -> computed: bool | object : expression | property : expression | identifier
+*/
+    //ECMA262 13.3.3.5: ObjectBindingPattern
+    if (node.properties === {}) { // ObjectBindingPattern:{}
+    // 1. Return NormalCompletion(empty).
+      return realm.intrinsics.undefined;
+    }
+    // ObjectBindingPattern: BindingPropertyList
+    // 1. Let status be the result of performing BindingInitialization for BindingPropertyList using value and environment as arguments.
+    let status;
+    for (let prop of ((node: any): BabelNodeObjectPattern).properties) {
+
+      if (prop.type == 'RestProperty') { // BindingProperty:SingleNameBinding
+        let argument = prop.argument;
+        if (argument.type == 'Identifier') { // BindingProperty:SingleNameBinding
+          // 1. Let name be the string that is the only element of BoundNames of SingleNameBinding.
+          let name = ((argument : any): BabelNodeIdentifier).name;
+          // 2. Return the result of performing KeyedBindingInitialization for SingleNameBinding using value, environment, and name as the arguments.
+          status = KeyedBindingInitialization(realm, value, environment, name);
+        } else if (argument.type == 'MemberExpression') { // BindingProperty:PropertyName:BindingElement
+          let propertyName = argument.object;
+          if (environment) {
+            // 1. Let P be the result of evaluating PropertyName.
+//            let P = environment.evaluate(propertyName);
+            // 2. ReturnIfAbrupt(P).
+
+            // 3. Return the result of performing KeyedBindingInitialization for BindingElement using value, environment, and P as arguments.
+//            status = KeyedBindingInitialization(realm, value, environment, P);
+          throw new Error("In progress");
+          }
+        }
+        else {
+          throw new Error("Unknown node " + argument.type);
+        }
+        continue;
+      }
+      if (prop.type == '') { // BindingProperty:PropertyName:BindingElement
+      // 1. Let P be the result of evaluating PropertyName.
+      // 2. ReturnIfAbrupt(P).
+      // 3. Return the result of performing KeyedBindingInitialization for BindingElement using value, environment, and P as arguments.
+      }
+    }
+
   } else if (node.type === "Identifier") { // ECMA262 12.1.5
     // 1. Let name be StringValue of Identifier.
     let name = ((node: any): BabelNodeIdentifier).name;
@@ -485,6 +550,20 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
   }
 
   throw new Error("Unknown node " + node.type);
+}
+
+// ECMA262 13.3.3.5: ObjectBindingPattern
+function ObjectPatternBindingInitialization(realm: Realm, properties: Array <any>, value: Value, environment: void | LexicalEnvironment) {
+  if (properties === {}) { // ObjectBindingPattern:{}
+    // 1. Return NormalCompletion(empty).
+    return realm.intrinsics.undefined;
+  }
+  throw new Error("TODO still")
+}
+
+//ECMA262 13.3.3.6
+export function IteratorBindingInitialization(realm: Realm, node: BabelNode, iteratorRecord: {$Iterator:ObjectValue, $Done:boolean}, environment: void | LexicalEnvironment) {
+  throw new Error("TODO: Not implemented yet")
 }
 
 // ECMA262 12.1.5.1
