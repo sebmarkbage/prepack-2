@@ -528,6 +528,7 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
         }
         throw new Error("Unknown node " + prop.type);
       }
+      return status;
     }
   } else if (node.type === "Identifier") { // ECMA262 12.1.5
     // 1. Let name be StringValue of Identifier.
@@ -540,7 +541,6 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
       BindingInitialization(realm, decl.id, value, environment);
     }
   }
-
   throw new Error("Unknown node " + node.type);
 }
 
@@ -788,6 +788,9 @@ export function IsDestructuring(ast: BabelNode) {
         }
       }
       return false;
+    case "ArrayPattern":
+    case "ObjectPattern":
+      return true;
     case "ArrayLiteral":
     case "ObjectLiteral":
       return true;
