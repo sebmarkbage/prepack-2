@@ -480,7 +480,12 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
 
     // 4. If iteratorRecord.[[Done]] is false, return ? IteratorClose(iterator, result).
     if (!iteratorRecord.$Done) {
-      return IteratorClose(realm, iterator, new ReturnCompletion(result));
+      // $FlowFixMe  Flow can't follow the reasoning that result must be a Value
+      if (result && !(result == realm.intrinsics.undefined)) {
+        // $FlowFixMe
+        return IteratorClose(realm, iterator, new ReturnCompletion(result));
+      }
+      return result
     }
     // 5. Return result.
     return result;
