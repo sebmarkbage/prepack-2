@@ -972,14 +972,14 @@ function runTest(
     return new TestResult(true, strict);
   } catch (err) {
     switch (err.message) {
-      case "Unsupported node type ArrayPattern":
-      case "TODO: Patterns aren't supported yet":
+      // case "Unsupported node type ArrayPattern":
+      // case "TODO: Patterns aren't supported yet":
       case "TODO: ClassDeclaration":
       case "TODO: ClassExpression":
       case "TODO: AwaitExpression":
       case "TODO: YieldExpression":
-      case "Unknown node ArrayPattern":
-      case "expected single name":
+      // case "Unknown node ArrayPattern":
+      // case "expected single name":
         return null;
       default:
         if (err.value && err.value.$Prototype &&

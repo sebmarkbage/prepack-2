@@ -468,6 +468,7 @@ export function ResolveThisBinding(realm: Realm): NullValue | ObjectValue | Abst
 }
 
 export function BindingInitialization(realm: Realm, node: BabelNode, value: Value, environment: void | LexicalEnvironment) {
+
   if (node.type === "ArrayPattern") { // ECMA262 13.3.3.5
     // 1. Let iterator be ? GetIterator(value).
     let iterator = GetIterator(realm, value);
@@ -513,28 +514,31 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
             // 2. Return the result of performing KeyedBindingInitialization for SingleNameBinding using value, environment, and name as the arguments.
             status = KeyedBindingInitialization(realm, value, environment, name);
           } else {
-            throw new Error("In progress");
+            throw new Error("Rest property got unexpected " + argument.type);
           }
           continue;
         }
         if (prop.type == 'ObjectProperty') { // BindingProperty:PropertyName:BindingElement
-        if (environment) {
-          // 1. Let P be the result of evaluating PropertyName.
-          let p_multi = EvalPropertyName(prop,environment,realm,true);
-          let p = p_multi.type == 'StringValue' ?
-                (((p_multi: any): StringValue).value) : ((p_multi: any):  string);
-          // 2. ReturnIfAbrupt(P).
+          // When environment is undefined, do a putvalue
+          if (environment === undefined) {
+            let reference = ResolveBinding(realm, prop, false, environment);
+            return PutValue(realm, reference, value);
+          } else {
+            // 1. Let P be the result of evaluating PropertyName.
+            let p_multi = EvalPropertyName(prop,environment,realm,true);
+            let p = p_multi.type == 'StringValue' ?
+                  (((p_multi: any): StringValue).value) : ((p_multi: any):  string);
+            // 2. ReturnIfAbrupt(P).
 
-          // 3. Return the result of performing KeyedBindingInitialization for BindingElement using value, environment, and P as arguments.
-          status = KeyedBindingInitialization(realm, value,environment, p);
-          continue;
+            // 3. Return the result of performing KeyedBindingInitialization for BindingElement using value, environment, and P as arguments.
+            status = KeyedBindingInitialization(realm, value,environment, p);
+            continue;
+           }
         } else {
-          PutValue(realm,prop,value)
+          throw new Error("Unknown node " + prop.type);
         }
-        throw new Error("Unknown node " + prop.type);
-      }
-      return status;
     }
+    return status;
   } else if (node.type === "Identifier") { // ECMA262 12.1.5
     // 1. Let name be StringValue of Identifier.
     let name = ((node: any): BabelNodeIdentifier).name;
@@ -542,9 +546,11 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
     // 2. Return ? InitializeBoundName(name, value, environment).
     return InitializeBoundName(realm, name, value, environment);
   } else if (node.type === "VariableDeclaration") { // ECMA262 13.7.5.9
+    let status;
     for (let decl of ((node: any): BabelNodeVariableDeclaration).declarations) {
-      BindingInitialization(realm, decl.id, value, environment);
+      status = BindingInitialization(realm, decl.id, value, environment);
     }
+    return status;
   }
   throw new Error("Unknown node " + node.type);
 }
@@ -565,7 +571,7 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
   // destructing assignment from 12.15.5.3
   // List processing cases rolled into for loop
 
-    if (element.type == 'NullLiteral') {
+    if (!(element) || element.type == 'NullLiteral') {
     //12.15.5.3
     // 1. If iteratorRecord.[[Done]] is false, then
       if (!iteratorRecord.$Done) {

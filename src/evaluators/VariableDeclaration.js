@@ -35,7 +35,6 @@ function letAndConst (ast: BabelNodeVariableDeclaration, strictCode: boolean, en
 
     let Initializer = declar.init;
     if (!Initializer) {
-      invariant(ast.kind !== "const", "const without an initializer");
 
       // 1. Let lhs be ResolveBinding(StringValue of BindingIdentifier).
       let bindingId = declar.id.name;
@@ -84,6 +83,7 @@ export default function (ast: BabelNodeVariableDeclaration, strictCode: boolean,
 
   for (let declar of ast.declarations) {
     if (declar.id.type !== "Identifier") {
+      console.log("VariableDeclaration eval about to die with " + declar.id.type);
       throw new Error("TODO: Patterns aren't supported yet");
     }
 
