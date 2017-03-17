@@ -32,7 +32,7 @@ function letAndConst (ast: BabelNodeVariableDeclaration, strictCode: boolean, en
   for (let declar of ast.declarations) {
     let Initializer = declar.init;
 
-    if (declar.id.type == "Identifier") {
+    if (declar.id.type === "Identifier") {
       let id = ((declar.id: any): BabelNodeIdentifier);
 
       if (!Initializer) {
@@ -81,7 +81,7 @@ function letAndConst (ast: BabelNodeVariableDeclaration, strictCode: boolean, en
 
      // 3. Let env be the running execution context's LexicalEnvironment.
      let binder_env = realm.getRunningContext().lexicalEnvironment;
-     
+
      // 4. Return the result of performing BindingInitialization for BindingPattern using value and env as the arguments.
      BindingInitialization(realm, declar.id, value, binder_env);
    }

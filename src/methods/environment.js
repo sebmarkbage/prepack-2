@@ -474,19 +474,18 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
     let iterator = GetIterator(realm, value);
 
     // 2. Let iteratorRecord be Record {[[Iterator]]: iterator, [[Done]]: false}.
-    let iteratorRecord = {$Iterator: iterator, $Done: false};
+    let iteratorRecord = { $Iterator: iterator, $Done: false };
 
     // 3. Let result be IteratorBindingInitialization for ArrayBindingPattern using iteratorRecord and environment as arguments.
     let result = IteratorBindingInitialization(realm, ((node: any): BabelNodeArrayPattern), iteratorRecord, environment);
 
     // 4. If iteratorRecord.[[Done]] is false, return ? IteratorClose(iterator, result).
     if (!iteratorRecord.$Done) {
-      // $FlowFixMe  Flow can't follow the reasoning that result must be a Value
-      if (result && !(result == realm.intrinsics.undefined)) {
+      if (result && !(result === realm.intrinsics.undefined)) {
         // $FlowFixMe
         return IteratorClose(realm, iterator, new ReturnCompletion(result));
       }
-      return result
+      return result;
     }
     // 5. Return result.
     return result;
@@ -506,11 +505,11 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
       let status;
       for (let prop of ((node: any): BabelNodeObjectPattern).properties) {
 
-        if (prop.type == 'RestProperty') { // BindingProperty:SingleNameBinding
+        if (prop.type === 'RestProperty') { // BindingProperty:SingleNameBinding
           let argument = prop.argument;
-          if (argument.type == 'Identifier') { // BindingProperty:SingleNameBinding
+          if (argument.type === 'Identifier') { // BindingProperty:SingleNameBinding
             // 1. Let name be the string that is the only element of BoundNames of SingleNameBinding.
-            let name = ((argument : any): BabelNodeIdentifier).name;
+            let name = ((argument: any): BabelNodeIdentifier).name;
             // 2. Return the result of performing KeyedBindingInitialization for SingleNameBinding using value, environment, and name as the arguments.
             status = KeyedBindingInitialization(realm, value, environment, name);
           } else {
@@ -518,20 +517,20 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
           }
           continue;
         }
-        if (prop.type == 'ObjectProperty') { // BindingProperty:PropertyName:BindingElement
+        if (prop.type === 'ObjectProperty') { // BindingProperty:PropertyName:BindingElement
           // When environment is undefined, do a putvalue
           if (environment === undefined) {
             let reference = ResolveBinding(realm, prop, false, environment);
             return PutValue(realm, reference, value);
           } else {
             // 1. Let P be the result of evaluating PropertyName.
-            let p_multi = EvalPropertyName(prop,environment,realm,true);
-            let p = p_multi.type == 'StringValue' ?
-                  (((p_multi: any): StringValue).value) : ((p_multi: any):  string);
+            let p_multi = EvalPropertyName(prop, environment, realm, true);
+            let p = p_multi.type === 'StringValue' ?
+                  (((p_multi: any): StringValue).value) : ((p_multi: any): string);
             // 2. ReturnIfAbrupt(P).
 
             // 3. Return the result of performing KeyedBindingInitialization for BindingElement using value, environment, and P as arguments.
-            status = KeyedBindingInitialization(realm, value,environment, p);
+            status = KeyedBindingInitialization(realm, value, environment, p);
             continue;
            }
         } else {
@@ -556,10 +555,10 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
 }
 
 // ECMA262 13.3.3.6
-export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArrayPattern, iteratorRecord: {$Iterator:ObjectValue, $Done:boolean}, environment: void | LexicalEnvironment) {
+export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArrayPattern, iteratorRecord: {$Iterator: ObjectValue, $Done: boolean}, environment: void | LexicalEnvironment) {
 
   // ArrayBindingPattern:[]
-  if (node.elements == {}) {
+  if (node.elements === {}) {
     // 1. Return NormalCompletion(empty).
     return (realm.intrinsics.undefined);
   }
@@ -571,7 +570,7 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
   // destructing assignment from 12.15.5.3
   // List processing cases rolled into for loop
 
-    if (!(element) || element.type == 'NullLiteral') {
+    if (!(element) || element.type === 'NullLiteral') {
     //12.15.5.3
     // 1. If iteratorRecord.[[Done]] is false, then
       if (!iteratorRecord.$Done) {
@@ -580,14 +579,16 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
         // b. If next is an abrupt completion, set iteratorRecord.[[Done]] to true.
         // c. ReturnIfAbrupt(next).
         // d. If next is false, set iteratorRecord.[[Done]] to true.
-        if (!next) { iteratorRecord.$Done = true; }
+        if (!next) {
+          iteratorRecord.$Done = true;
+        }
       }
       // 2. Return NormalCompletion(empty).
       status = realm.intrinsics.undefined;
       continue;
     }
 
-    if (element.type == 'Identifier') { // SingleNameBinding:BindingIdentifierInitializer
+    if (element.type === 'Identifier') { // SingleNameBinding:BindingIdentifierInitializer
       // 1. Let bindingId be StringValue of BindingIdentifier.
       let bindingId = ((element: any): BabelNodeIdentifier).name;
       // 2. Let lhs be ? ResolveBinding(bindingId, environment).
@@ -609,7 +610,10 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
         v = IteratorValue(realm, next);
         // ii. If v is an abrupt completion, set iteratorRecord.[[Done]] to true.
         // iii. ReturnIfAbrupt(v).
-        if (!v) { iteratorRecord.$Done = true; continue; }
+        if (!v) {
+          iteratorRecord.$Done = true;
+          continue;
+        }
       } else {
         // 4. If iteratorRecord.[[Done]] is true, let v be undefined.
         v = realm.intrinsics.undefined;
@@ -630,7 +634,7 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
       continue;
     }
 
-  if (element.type == 'ObjectPattern') { // BindingElement:BindingPatternInitializer
+  if (element.type === 'ObjectPattern') { // BindingElement:BindingPatternInitializer
     let v;
     // 1. If iteratorRecord.[[Done]] is false, then
     if (!iteratorRecord.$Done) {
@@ -639,13 +643,15 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
       // b. If next is an abrupt completion, set iteratorRecord.[[Done]] to true.
       // c. ReturnIfAbrupt(next).
       // d. If next is false, set iteratorRecord.[[Done]] to true.
-      if (!next) { iteratorRecord.$Done = true }
-      //   e. Else,
-      else {
+      if (!next) {
+        iteratorRecord.$Done = true;
+      } else /* e. else */ {
       // i. Let v be IteratorValue(next).
-      v = IteratorValue(realm, next);
-      // ii. If v is an abrupt completion, set iteratorRecord.[[Done]] to true.
-      if (!v) { iteratorRecord.$Done = true }
+        v = IteratorValue(realm, next);
+        // ii. If v is an abrupt completion, set iteratorRecord.[[Done]] to true.
+        if (!v) {
+          iteratorRecord.$Done = true;
+        }
       // iii. ReturnIfAbrupt(v).
       }
     }
@@ -658,13 +664,14 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
     //   b. Let v be ? GetValue(defaultValue).
     // 4. Return the result of performing BindingInitialization of BindingPattern with v and environment as the arguments.
     if (v) { // should always be set, but flow isn't as sure
-      status = BindingInitialization(realm, element, v, environment);}
+      status = BindingInitialization(realm, element, v, environment);
+    }
     continue;
   }
 
-  if (element.type == 'RestElement') {
+  if (element.type === 'RestElement') {
     let restElement = ((element: any): BabelNodeRestElement).argument;
-    if (restElement.type == 'Identifier') {
+    if (restElement.type === 'Identifier') {
     // BindingRestElement:...BindingIdentifier
 
       // 1. Let lhs be ? ResolveBinding(StringValue of BindingIdentifier, environment).
@@ -679,11 +686,13 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
         // a. If iteratorRecord.[[Done]] is false, then
         if (!iteratorRecord.$Done) {
           // i. Let next be IteratorStep(iteratorRecord.[[Iterator]]).
-          next = IteratorStep(realm, iteratorRecord.$Iterator)
+          next = IteratorStep(realm, iteratorRecord.$Iterator);
           // ii. If next is an abrupt completion, set iteratorRecord.[[Done]] to true.
           // iii. ReturnIfAbrupt(next).
           // iv. If next is false, set iteratorRecord.[[Done]] to true.
-          if (!next) {iteratorRecord.$Done = true;}
+          if (!next) {
+            iteratorRecord.$Done = true;
+          }
         }
         // b. If iteratorRecord.[[Done]] is true, then
         if (iteratorRecord.$Done) {
@@ -702,19 +711,19 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
           // d. If nextValue is an abrupt completion, set iteratorRecord.[[Done]] to true.
           // e. ReturnIfAbrupt(nextValue).
           // f. Let status be CreateDataProperty(A, ! ToString(n), nextValue).
-          let status = CreateDataProperty(realm, A, n.toString(), nextValue);
+          status = CreateDataProperty(realm, A, n.toString(), nextValue);
           //   g. Assert: status is true.
           if (!status) throw new Error("status not set by CreateDataProperty");
         }
         // h. Increment n by 1.
-        n = n+1;
-      } while (!iteratorRecord.$Done)
+        n = n + 1;
+      } while (!iteratorRecord.$Done);
       continue;
     }
 
-    if (restElement.type == 'ObjectPattern') { // BindingRestElement:...BindingPattern
+    if (restElement.type === 'ObjectPattern') { // BindingRestElement:...BindingPattern
       // 1. Let A be ArrayCreate(0).
-      let A = ArrayCreate(realm,0);
+      let A = ArrayCreate(realm, 0);
       // 2. Let n be 0.
       let n = 0;
       // 3. Repeat,
@@ -727,7 +736,10 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
           // ii. If next is an abrupt completion, set iteratorRecord.[[Done]] to true.
           // iii. ReturnIfAbrupt(next).
           // iv. If next is false, set iteratorRecord.[[Done]] to true.
-          if (!next) { iteratorRecord.$Done = true}}
+          if (!next) {
+            iteratorRecord.$Done = true;
+          }
+        }
         // b. If iteratorRecord.[[Done]] is true, then
         if (iteratorRecord.$Done) {
         // i. Return the result of performing BindingInitialization of BindingPattern with A and environment as the arguments.
@@ -745,8 +757,8 @@ export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArray
           if (!status) throw new Error("status not set by CreateDataProperty");
         }
         // h. Increment n by 1.
-        n = n +1;
-      } while (!iteratorRecord.$Done)
+        n = n + 1;
+      } while (!iteratorRecord.$Done);
     }
   }
  }
