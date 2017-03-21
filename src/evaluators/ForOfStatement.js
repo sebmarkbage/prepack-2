@@ -34,10 +34,7 @@ import {
   IsDestructuring,
   HasSomeCompatibleType
 } from "../methods/index.js";
-import {
-  EvalPropertyName
-} from "./index.js";
-import type { BabelNodeForOfStatement, BabelNodeVariableDeclaration, BabelNodeLVal, BabelNodeRestElement, BabelNode, BabelNodeIdentifier, BabelNodeObjectPattern, BabelNodeArrayPattern, BabelNodeAssignmentPattern, BabelNodeStatement } from "babel-types";
+import type { BabelNodeForOfStatement, BabelNodeVariableDeclaration, BabelNodeLVal, BabelNode, BabelNodeStatement } from "babel-types";
 
 export type IterationKind = "iterate" | "enumerate";
 export type LhsKind = "lexicalBinding" | "varBinding" | "assignment";
@@ -80,7 +77,8 @@ function BindingInstantiation(realm: Realm, ast: BabelNodeVariableDeclaration, e
   // 2. Assert: envRec is a declarative Environment Record.
   invariant(envRec instanceof DeclarativeEnvironmentRecord);
 
-  function identifier_process(name: string) {
+  // 3. For each element name of the BoundNames of ForBinding do
+  for (let name of BoundNames(realm, ast)) {
     // a. If IsConstantDeclaration of LetOrConst is true, then
     if (ast.kind === "const") {
       // i. Perform ! envRec.CreateImmutableBinding(name, true).
@@ -88,68 +86,6 @@ function BindingInstantiation(realm: Realm, ast: BabelNodeVariableDeclaration, e
     } else { // b.
       // i. Perform ! envRec.CreateMutableBinding(name, false).
       envRec.CreateMutableBinding(name, false);
-    }
-  }
-
-  function objectPattern_process(od: BabelNodeObjectPattern) {
-    for (let odecl of od.properties) {
-      if (odecl.type === "ObjectProperty") {
-        let n_multi = EvalPropertyName(odecl, env, realm, true);
-        let n = n_multi.type === 'StringValue' ?
-              (((n_multi: any): StringValue).value) : ((n_multi: any): string);
-        identifier_process(n);
-     } else {
-       throw new Error("Unexpected node type " + odecl.type);
-     }
-   }
- }
-
-  function arrayPattern_process(ad: BabelNodeArrayPattern) {
-    for (let adecl of ad.elements) {
-      if (!adecl || adecl == null) {
-        continue;
-      }
-      if (adecl.type === "Identifier") {
-        identifier_process(adecl.name);
-      } else if (adecl.type === "RestElement") {
-        let argument = ((adecl: any): BabelNodeRestElement).argument;
-        if (argument.type === "ArrayPattern") {
-          arrayPattern_process(((argument: any): BabelNodeArrayPattern));
-        } else if (argument.type === "ObjectPattern") {
-          objectPattern_process(((argument: any): BabelNodeObjectPattern));
-        } else if (argument.type === "AssignmentPattern") {
-          identifier_process(((argument: any): BabelNodeAssignmentPattern).left.name);
-        } else if (argument.type === "Identifier") {
-          identifier_process(((argument: any): BabelNodeIdentifier).name);
-        } else {
-          throw new Error("Unexpected node " + argument.type);
-        }
-      } else if (adecl.type === "AssignmentPattern") {
-        identifier_process(((adecl: any): BabelNodeAssignmentPattern).left.name);
-      } else if (adecl.type === "ObjectProperty") {
-        let n_multi = EvalPropertyName(adecl, env, realm, true);
-        let n = n_multi.type === 'StringValue' ?
-              (((n_multi: any): StringValue).value) : ((n_multi: any): string);
-        identifier_process(n);
-      } else if (adecl.type === "ArrayPattern") {
-        arrayPattern_process(adecl);
-      } else if (adecl.type === "ObjectPattern") {
-        objectPattern_process(adecl);
-      } else
-        throw new Error("Unexpected node " + adecl.type);
-  }
-}
-
-  // 3. For each element name of the BoundNames of ForBinding do
-  for (let decl of ast.declarations) {
-    if (decl.id.type === "Identifier") {
-      identifier_process(((decl.id: any): BabelNodeIdentifier).name);
-    } else if (decl.id.type === "ObjectPattern") {
-      objectPattern_process(((decl.id: any): BabelNodeObjectPattern));
-    } else if (decl.id.type === "ArrayPattern") {
-      arrayPattern_process(((decl.id: any): BabelNodeArrayPattern));
-    } else {
-      throw new Error("Unexpected node type " + decl.id.type);
     }
   }
 }

@@ -52,7 +52,7 @@ import {
 import {
   EvalPropertyName
 } from "../evaluators/index.js";
-import type { BabelNode, BabelNodeVariableDeclaration, BabelNodeIdentifier, BabelNodeRestElement, BabelNodeObjectPattern, BabelNodeArrayPattern, BabelNodeStatement } from "babel-types";
+import type { BabelNode, BabelNodeVariableDeclaration, BabelNodeIdentifier, BabelNodeRestProperty, BabelNodeRestElement, BabelNodeObjectPattern, BabelNodeArrayPattern, BabelNodeAssignmentPattern, BabelNodeStatement, BabelNodeLVal } from "babel-types";
 
 
 // ECMA262 6.2.3
@@ -162,7 +162,71 @@ export function NewDeclarativeEnvironment(realm: Realm, E: LexicalEnvironment): 
   return env;
 }
 
+// ECMA 12.1.2 && ECMA 14.1.3 && ECMA 13.3.3.1
 export function BoundNames(realm: Realm, node: BabelNode): Array<string> {
+
+  // BindingElementList 13.3.3.1
+  function bindingPropertyList(elements: Array<any>) {
+    if (elements === {} || elements === [] || elements.length === 0) {
+      // 1. Return a new empty List.
+      return [];
+    } else {
+      let BindingProperty = elements[0];
+      let tail = elements.slice(1);
+      // 1. Let names be BoundNames of bindingPropertyList
+      let names = bindingPropertyList(tail);
+      // 2. Append to names the elements of BoundNames of BindingProperty
+      names = BoundNames(realm, BindingProperty).concat(names);
+      // 3. Return names
+      return names;
+    }
+  }
+
+  // ArrayBindingPattern
+  function arrayBindingPattern(elements: Array<any>) {
+    if (elements === {} || elements === [] || elements.length === 0) {
+      return []; // Empty case in case Babel parser removes redundant commas
+    } else if (elements.length === 1 && elements[0].type === "NullLiteral") { // [ Elision ]
+      // 1. Return a new empty List
+      return [];
+    } else {
+      let head = elements[0];
+      let tail = elements.slice(1);
+      if (head.type === "NullLiteral") { // [ Elision BindingElementList ]
+        // 1. Return the BoundNames of BindingElementList
+        return arrayBindingPattern(tail);
+      } else { // [ BindingElementList , BindingRestElement ]
+        // 1. Let names be BoundNames of BindingElementList
+        let names = arrayBindingPattern(tail);
+        // 2. Append to names the elements of BoundNames of BindingRestElement
+        names = BoundNames(realm, head).concat(names);
+        // 3. Return names
+        return names;
+      }
+    }
+  }
+  // 12.1.2
+  if (node.type === "Identifier") { // BIndingIdentifier: Identifier
+    // 1. Return a new List containing the StringValue of Identifier
+    return [((node: any): BabelNodeIdentifier).name];
+  } else if (node.type === "YieldExpression") {
+    // 1. "Return a new List containint "yield".
+    return ["yield"];
+  } else if (node.type === "ObjectPattern") { // 13.3.3.1
+    return bindingPropertyList(((node: any): BabelNodeObjectPattern).properties);
+  } else if (node.type === "ArrayPattern") {
+    return arrayBindingPattern(((node: any): BabelNodeArrayPattern).elements);
+  } else if (node.type === "VariableDeclaration") {
+    // BindingElementList
+    return bindingPropertyList(((node: any): BabelNodeVariableDeclaration).declarations);
+  } else if (node.type === "RestELement") {
+    // Recur for RestElement as from ArrayBindingPattern above
+    return BoundNames(realm, ((node: any): BabelNodeRestProperty).argument);
+  } else if (node.type === "AssignmentPattern") {
+    // SingleNameBinding:BindingIdentifierInitializer
+    // 1. Return the BoundNames of BindingIdentifier
+    return BoundNames(realm, ((node: any): BabelNodeAssignmentPattern).left);
+  }
   return Object.keys(t.getOuterBindingIdentifiers(node));
 }
 
@@ -477,7 +541,7 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
     let iteratorRecord = { $Iterator: iterator, $Done: false };
 
     // 3. Let result be IteratorBindingInitialization for ArrayBindingPattern using iteratorRecord and environment as arguments.
-    let result = IteratorBindingInitialization(realm, ((node: any): BabelNodeArrayPattern), iteratorRecord, environment);
+    let result = IteratorBindingInitialization(realm, ((node: any): BabelNodeArrayPattern).elements, iteratorRecord, environment);
 
     // 4. If iteratorRecord.[[Done]] is false, return ? IteratorClose(iterator, result).
     if (!iteratorRecord.$Done) {
@@ -509,9 +573,9 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
           let argument = prop.argument;
           if (argument.type === 'Identifier') { // BindingProperty:SingleNameBinding
             // 1. Let name be the string that is the only element of BoundNames of SingleNameBinding.
-            let name = ((argument: any): BabelNodeIdentifier).name;
+            let name = BoundNames(realm, argument)[0];
             // 2. Return the result of performing KeyedBindingInitialization for SingleNameBinding using value, environment, and name as the arguments.
-            status = KeyedBindingInitialization(realm, value, environment, name);
+            status = KeyedBindingInitialization(realm, argument, value, environment, name);
           } else {
             throw new Error("Rest property got unexpected " + argument.type);
           }
@@ -524,13 +588,14 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
             return PutValue(realm, reference, value);
           } else {
             // 1. Let P be the result of evaluating PropertyName.
-            let p_multi = EvalPropertyName(prop, environment, realm, true);
+            /*let p_multi = EvalPropertyName(prop, environment, realm, true);
             let p = p_multi.type === 'StringValue' ?
-                  (((p_multi: any): StringValue).value) : ((p_multi: any): string);
+                  (((p_multi: any): StringValue).value) : ((p_multi: any): string);*/
+            let p = EvalPropertyName(prop, environment, realm, false);
             // 2. ReturnIfAbrupt(P).
 
             // 3. Return the result of performing KeyedBindingInitialization for BindingElement using value, environment, and P as arguments.
-            status = KeyedBindingInitialization(realm, value, environment, p);
+            status = KeyedBindingInitialization(realm, prop, value, environment, p.toString());
             continue;
            }
         } else {
@@ -540,7 +605,7 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
     return status;
   } else if (node.type === "Identifier") { // ECMA262 12.1.5
     // 1. Let name be StringValue of Identifier.
-    let name = ((node: any): BabelNodeIdentifier).name;
+    let name = ((node: any): BabelNodeIdentifier).name.toString();
 
     // 2. Return ? InitializeBoundName(name, value, environment).
     return InitializeBoundName(realm, name, value, environment);
@@ -555,16 +620,16 @@ export function BindingInitialization(realm: Realm, node: BabelNode, value: Valu
 }
 
 // ECMA262 13.3.3.6
-export function IteratorBindingInitialization(realm: Realm, node: BabelNodeArrayPattern, iteratorRecord: {$Iterator: ObjectValue, $Done: boolean}, environment: void | LexicalEnvironment) {
+export function IteratorBindingInitialization(realm: Realm, nodes: Array<any>, iteratorRecord: {$Iterator: ObjectValue, $Done: boolean}, environment: void | LexicalEnvironment) {
 
   // ArrayBindingPattern:[]
-  if (node.elements === {}) {
+  if (nodes === {} || nodes === []) {
     // 1. Return NormalCompletion(empty).
     return (realm.intrinsics.undefined);
   }
 
   let status;
-  for (let element of node.elements) {
+  for (let element of nodes) {
   // Elision cases: parser converts to null expressions, so the treatment
   // is different from spec and wraps together the elision cases and the
   // destructing assignment from 12.15.5.3
@@ -823,33 +888,43 @@ export function IsDestructuring(ast: BabelNode) {
 }
 
 // ECMA262 13.3.3.7
-export function KeyedBindingInitialization(realm: Realm, value: Value, environment: ?LexicalEnvironment, propertyName: string) {
-  // 1. Let bindingId be StringValue of BindingIdentifier.
-  let bindingId = propertyName;
+export function KeyedBindingInitialization(realm: Realm, bindingElement: BabelNodeLVal, value: Value, environment: ?LexicalEnvironment, propertyName: string) {
+  if (bindingElement.type === "Identifier") {
+    // 1. Let bindingId be StringValue of BindingIdentifier.
+    let bindingId = bindingElement.name;
 
-  // if environment is undefined, the calling context is not strict
-  let strict = environment !== undefined;
+    // if environment is undefined, the calling context is not strict
+    let strict = environment !== undefined;
 
-  // 2. Let lhs be ? ResolveBinding(bindingId, environment).
-  let lhs = ResolveBinding(realm, bindingId, strict, environment);
+    // 2. Let lhs be ? ResolveBinding(bindingId, environment).
+    let lhs = ResolveBinding(realm, bindingId, strict, environment);
 
-  // 3. Let v be ? GetV(value, propertyName).
-  let v = GetV(realm, value, propertyName);
+    // 3. Let v be ? GetV(value, propertyName).
+    let v = GetV(realm, value, propertyName);
 
-  // 4. If Initializer is present and v is undefined, then
-  if (false) {
-    // a. Let defaultValue be the result of evaluating Initializer.
-    // b. Let v be ? GetValue(defaultValue).
-    // c. If IsAnonymousFunctionDefinition(Initializer) is true, then
-      // i. Let hasNameProperty be ? HasOwnProperty(v, "name").
-      // ii. If hasNameProperty is false, perform SetFunctionName(v, bindingId).
+    // 4. If Initializer is present and v is undefined, then
+    if (false) {
+      // a. Let defaultValue be the result of evaluating Initializer.
+      // b. Let v be ? GetValue(defaultValue).
+      // c. If IsAnonymousFunctionDefinition(Initializer) is true, then
+        // i. Let hasNameProperty be ? HasOwnProperty(v, "name").
+        // ii. If hasNameProperty is false, perform SetFunctionName(v, bindingId).
+    }
+
+    // 5. If environment is undefined, return ? PutValue(lhs, v).
+    if (!environment) return PutValue(realm, lhs, v);
+
+    console.log(lhs, v);
+
+    // 6. Return InitializeReferencedBinding(lhs, v).
+    return InitializeReferencedBinding(realm, lhs, v);
+  } else {
+    // 1. Let v be ? GetV(value, propertyName).
+    let v = GetV(realm, value, propertyName);
+    // 2. If Initializer is present and v is undefined, then
+    //   a. Let defaultValue be the result of evaluating Initializer.
+    //   b. Let v be ? GetValue(defaultValue).
+    return BindingInitialization(realm, bindingElement, v, environment);
+
   }
-
-  // 5. If environment is undefined, return ? PutValue(lhs, v).
-  if (!environment) return PutValue(realm, lhs, v);
-
-  console.log(lhs, v);
-
-  // 6. Return InitializeReferencedBinding(lhs, v).
-  return InitializeReferencedBinding(realm, lhs, v);
 }

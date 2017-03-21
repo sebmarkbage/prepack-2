@@ -16,13 +16,13 @@ import { ThrowCompletion, ReturnCompletion, AbruptCompletion } from "../completi
 import { ExecutionContext } from "../realm.js";
 import { GlobalEnvironmentRecord, ObjectEnvironmentRecord } from "../environment.js";
 import { Value, BoundFunctionValue, EmptyValue, FunctionValue, ObjectValue, StringValue, SymbolValue, NumberValue } from "../values/index.js";
-import { DefinePropertyOrThrow, NewDeclarativeEnvironment, ResolveBinding } from "./index.js";
+import { DefinePropertyOrThrow, NewDeclarativeEnvironment, /*ResolveBinding*/ } from "./index.js";
 import { OrdinaryCreateFromConstructor, CreateUnmappedArgumentsObject, CreateMappedArgumentsObject } from "./create.js";
 import { OrdinaryCallEvaluateBody, OrdinaryCallBindThis, PrepareForOrdinaryCall, Call } from "./call.js";
 import { SameValue } from "../methods/abstract.js";
 import { Construct } from "../methods/construct.js";
-import { BoundNames, ContainsExpression, GetActiveScriptOrModule } from "../methods/index.js";
-import { PutValue } from "./properties.js";
+import { BoundNames, ContainsExpression, GetActiveScriptOrModule, IteratorBindingInitialization, CreateListIterator } from "../methods/index.js";
+// import { PutValue } from "./properties.js";
 import traverse from "../traverse.js";
 import invariant from "../invariant.js";
 import parse from "../utils/parse.js";
@@ -117,7 +117,7 @@ export function FindVarScopedDeclarations(ast_node: BabelNode): Array<BabelNode>
 // ECMA262 9.2.12
 export function FunctionDeclarationInstantiation(realm: Realm, func: FunctionValue, argumentsList: Array<Value>): EmptyValue {
   // 1. Let calleeContext be the running execution context.
-  let calleeContext = realm.getRunningContext();
+   let calleeContext = realm.getRunningContext();
 
   // 2. Let env be the LexicalEnvironment of calleeContext.
   let env = calleeContext.lexicalEnvironment;
@@ -137,10 +137,11 @@ export function FunctionDeclarationInstantiation(realm: Realm, func: FunctionVal
   // 7. Let parameterNames be the BoundNames of formals.
   let parameterNames = Object.create(null);
   for (let param of formals) {
-    let paramBindings = t.getBindingIdentifiers(param, true);
+    let paramBindings = BoundNames(realm, param);
 
-    for (let name in paramBindings) {
-      parameterNames[name] = (parameterNames[name] || []).concat(paramBindings[name]);
+    for (let ni = 0; ni < paramBindings.length; ni++) {
+      let name = paramBindings[ni];
+      parameterNames[name] = (parameterNames[name] || []).concat(paramBindings[ni]);
     }
   }
 
@@ -285,12 +286,13 @@ export function FunctionDeclarationInstantiation(realm: Realm, func: FunctionVal
   }
 
   // 23. Let iteratorRecord be Record {[[Iterator]]: CreateListIterator(argumentsList), [[Done]]: false}.
-  let iteratorRecord = 0;
+  let iteratorRecord = { $Iterator: CreateListIterator(realm, argumentsList), $Done: false };
 
   // 24. If hasDuplicates is true, then
   if (hasDuplicates === true) {
     // a. Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
-    for (let i = 0; i < func.$FormalParameters.length; ++i) {
+    IteratorBindingInitialization(realm, formals, iteratorRecord, undefined);
+    /*for (let i = 0; i < func.$FormalParameters.length; ++i) {
       let param = func.$FormalParameters[i];
 
       switch (param.type) {
@@ -303,13 +305,14 @@ export function FunctionDeclarationInstantiation(realm: Realm, func: FunctionVal
       default:
         throw new ThrowCompletion(new StringValue(realm, "only plain identifiers are supported in parameter lists"));
       }
-    }
+    }*/
   } else { // 25. Else,
     // a. Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
-    for (let i = 0; i < func.$FormalParameters.length; ++i) {
-      let param = func.$FormalParameters[i];
+    IteratorBindingInitialization(realm, formals, iteratorRecord, env);
 
-      switch (param.type) {
+    /*    for (let i = 0; i < func.$FormalParameters.length; ++i) {
+      let param = func.$FormalParameters[i];
+     switch (param.type) {
       case "Identifier":
         let value = argumentsList[iteratorRecord] || realm.intrinsics.undefined;
         ++iteratorRecord;
@@ -318,7 +321,7 @@ export function FunctionDeclarationInstantiation(realm: Realm, func: FunctionVal
       default:
         throw new ThrowCompletion(new StringValue(realm, "only plain identifiers are supported in parameter lists"));
       }
-    }
+    }*/
   }
 
 
