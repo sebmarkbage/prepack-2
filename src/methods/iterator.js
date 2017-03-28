@@ -23,7 +23,6 @@ import {
   CreateIterResultObject,
   CreateMethodProperty,
   SameValue,
-  HasCompatibleType
 } from "./index.js";
 import invariant from "../invariant.js";
 import type { IterationKind } from "../types.js";

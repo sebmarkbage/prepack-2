@@ -72,6 +72,10 @@ export default class ObjectValue extends ConcreteValue {
   $MapData: void | Array<{$Key: void | Value, $Value: void | Value}>;
   $Map: void | ObjectValue | UndefinedValue;
 
+  // list
+  $ListIteratorNextIndex: void | number;
+  $IteratorNext: void | ObjectValue;
+
   // weak map
   $WeakMapData: void | Array<{$Key: void | Value, $Value: void | Value}>;
 

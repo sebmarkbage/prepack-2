@@ -14,7 +14,7 @@ import type { LexicalEnvironment } from "../environment.js";
 import { DeclarativeEnvironmentRecord } from "../environment.js";
 import { Reference } from "../environment.js";
 import { BreakCompletion, AbruptCompletion, ContinueCompletion } from "../completions.js";
-import { EmptyValue, ObjectValue, Value, NullValue, UndefinedValue, StringValue } from "../values/index.js";
+import { EmptyValue, ObjectValue, Value, NullValue, UndefinedValue } from "../values/index.js";
 import invariant from "../invariant.js";
 import {
   InitializeReferencedBinding,
