@@ -9,7 +9,7 @@
 
 /* @flow */
 
-import type { BabelNodeExpression, BabelNodeIdentifier } from "babel-types";
+import type { BabelNodeExpression, BabelNodeIdentifier, BabelNodeSourceLocation } from "babel-types";
 import type { Realm } from "../realm.js";
 import type { PropertyKeyValue } from "../types.js";
 
@@ -80,6 +80,29 @@ export default class AbstractValue extends Value {
     return ((this._buildNode: any): BabelNodeIdentifier);
   }
 
+  getSourceLocations(locations: Array<BabelNodeSourceLocation>) {
+    if (!(this._buildNode instanceof Function)) {
+      if (this._buildNode.loc) locations.push(this._buildNode.loc);
+    }
+    for (let val of this.args) {
+      if (val instanceof AbstractValue) val.getSourceLocations(locations);
+    }
+  }
+
+  getSourceNames(names: Array<string>) {
+    if (this.args.length > 0) {
+      for (let val of this.args) {
+        if (val.intrinsicName && !val.intrinsicName.startsWith("_$"))
+          names.push(val.intrinsicName);
+        else if (val instanceof AbstractValue)
+          val.getSourceNames(names);
+      }
+    }
+    if (this.intrinsicName && !this.intrinsicName.startsWith("_$")) {
+      names.push(this.intrinsicName);
+    }
+  }
+
   mightBeNumber(): boolean {
     let valueType = this.getType();
     if (valueType === NumberValue) return true;
@@ -147,20 +170,26 @@ export default class AbstractValue extends Value {
     let realm = val.$Realm;
 
     let identity;
-    if (val === realm.$GlobalObject) identity = "global";
-    if (!identity) identity = val.intrinsicName;
-    if (!identity && val instanceof AbstractValue) identity = "(some abstract value)";
-    if (!identity) identity = "(some value)";
+    if (val === realm.$GlobalObject)
+      identity = "global";
+    else if (val instanceof AbstractValue) {
+      let names = [];
+      val.getSourceNames(names);
+      identity = `abstract value ${names.join(" and ")}`;
+    } else
+      identity = val.intrinsicName || "(some value)";
+
+    let source_locations = [];
+    if (val instanceof AbstractValue)
+      val.getSourceLocations(source_locations);
 
     let location;
     if (propertyName instanceof SymbolValue) location = `at symbol [${propertyName.$Description || "(no description)"}]`;
     else if (propertyName instanceof StringValue) location = `at ${propertyName.value}`;
     else if (typeof propertyName === "string") location = `at ${propertyName}`;
-    else location = "";
+    else location = `at ${source_locations.join("\n")}`;
 
-    let type = val instanceof AbstractValue ? "abstract value" : val instanceof ObjectValue ? `${val.isSimple() ? "simple " : " "}${val.isPartial() ? "partial " : " "}object` : "value";
-
-    let message = `Introspection of ${identity} ${location} is not allowed on ${type}`;
+    let message = `This operation is not allowed on ${identity} ${location}`;
 
     throw realm.createErrorThrowCompletion(realm.intrinsics.__IntrospectionError, message);
   }
